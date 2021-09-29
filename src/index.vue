@@ -18,7 +18,8 @@
                :key="getKey(tag)"
                closable
                @on-close="removeOne(tag)">
-            {{ tag }}
+            <span class="text"
+                  :title="tag">{{tag}}</span>
           </Tag>
         </div>
         <p v-else
@@ -275,7 +276,7 @@ export default {
       }
       if (len > 13) {
         num = 0.75
-         x = 10
+        x = 10
       }
       return {
         transform: `scale(${num}) translateX(-${x}px)`
@@ -731,6 +732,16 @@ export default {
     left: 0 !important;
     width: fit-content;
   }
+  /deep/ .ivu-tag {
+    display: flex;
+    align-items: center;
+    .ivu-tag-text {
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      word-break: break-all;
+    }
+  }
 }
 // 显示点击
 .labels {
@@ -754,6 +765,12 @@ export default {
     min-height: 30px;
     overflow: -moz-scrollbars-none;
     -ms-overflow-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    .text {
+      cursor: default;
+    }
   }
 
   .tags::-webkit-scrollbar {

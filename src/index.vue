@@ -1,17 +1,21 @@
 <template>
   <div class="multi-cascader">
     <Dropdown :trigger="'click'"
+              :placement="placement"
               :transfer="transfer"
               :stop-propagation="true"
               :transfer-class-name="`${popperClass} ${unid}`"
               @on-visible-change="visibleChange"
               v-bind="$attrs">
       <div class="labels"
-           :class="{'clearable':clearable && value.length > 0}">
+           @mouseenter="handleMouseenter"
+           @mouseleave="handleMouseleave">
         <div v-if="selectedLabels.length > 0"
              class="tags">
-          <Tag v-for="(tag, index) in selectedLabels"
-               :key="value[index]"
+          <Tag v-for="tag in selectedLabels"
+               :style="tagSty"
+               :fade="false"
+               :key="getKey(tag)"
                closable
                @on-close="removeOne(tag)">
             {{ tag }}
@@ -20,15 +24,15 @@
         <p v-else
            class="placeholder-text">{{placeholder}}</p>
         <!-- 清空 -->
-        <span v-if="clearable && value.length > 0"
-              class="r-icon clear"
+        <span v-show="showClearBtn"
+              class="r-icon"
               @click.stop.prevent="handleClear">
           <Icon type="ios-close-circle-outline"></Icon>
         </span>
         <!-- 下拉icon -->
-        <span>
-          <Icon class="r-icon exp"
-                type="ios-arrow-down"></Icon>
+        <span v-show="!showClear"
+              class="r-icon exp">
+          <Icon type="ios-arrow-down"></Icon>
         </span>
       </div>
       <div slot="list"
@@ -41,8 +45,11 @@
                          :level="1"
                          :active-list="activeList"
                          :notUseAble="notUseAble"
+                         :maxRequest="maxRequest"
+                         :useMax="useMax"
                          @handle-click="handleClick"
                          @handle-check="handleCheck"
+                         @handle-checkAll="handleCheckAll"
                          :label-key="labelKey"
                          :expand-trigger="expandTrigger"></render-list>
           </div>
@@ -50,14 +57,17 @@
             <!-- :style="{left: (160 * item.id) + 'px'}" -->
             <div v-if="item.rendered && showData[item.id].length"
                  v-show="activeList.length >= item.id"
-                 :key="item.id"
+                 :key="getKey(item)"
                  class="ground-item ground-pos">
               <render-list :list="showData[item.id]"
                            :level="item.id + 1"
                            :active-list="activeList"
                            :notUseAble="notUseAble"
+                           :maxRequest="maxRequest"
+                           :useMax="useMax"
                            @handle-click="handleClick"
                            @handle-check="handleCheck"
+                           @handle-checkAll="handleCheckAll"
                            :label-key="labelKey"
                            :expand-trigger="expandTrigger"></render-list>
             </div>
@@ -78,6 +88,52 @@ export default {
     renderList
   },
   props: {
+    // 是否要回显labels
+    echoLabel: {
+      type: Array,
+      default: () => {
+        return []
+      }
+    },
+    // 每一级别是否可以选择的数据字段，不填写默认显示选择框。tips: 只有在当前层级全部设置为true才会显示复选框和全选框
+    checkKey: {
+      type: String,
+      default: 'showCheck'
+    },
+    // @todo 设置上级的全选不用选择下一级的数据
+    // false 不用选择下一级 true 必选选择下一级
+    notSelectNext: {
+      type: Boolean,
+      default: false
+    },
+    // 最大的请求层级 0 为不限制
+    maxRequest: {
+      type: Number,
+      default: 0
+    },
+    // 异步加载子元素 异步传入数据
+    sync: {
+      type: Boolean,
+      default: false
+    },
+    // 异步请求数据的回调 必须开启异步请求开关 sync为true
+    syncCallBack: {
+      type: Function,
+      default: () => {
+        // 默认一个函数
+        return () => {}
+      }
+    },
+    // label显示的层级 all 全部 / last 最后一层
+    labelLv: {
+      type: String,
+      default: 'all'
+    },
+    // 下拉菜单出现的位置，可选值为toptop-starttop-endbottombottom-startbottom-endleftleft-startleft-endrightright-startright-en
+    placement: {
+      type: String,
+      default: 'bottom'
+    },
     // 是否放在body下面展示list
     transfer: {
       type: Boolean,
@@ -88,7 +144,7 @@ export default {
       type: String,
       default: '请选择'
     },
-    // 最大选择数
+    // 最大选择数 使用该属性不能使用全选功能
     maxCount: {
       type: Number
     },
@@ -166,6 +222,13 @@ export default {
   },
   data() {
     return {
+      // 显示清空
+      showClear: false,
+      // 缓存传入的label和value
+      storeEchoData: {
+        label: [],
+        value: []
+      },
       // 唯一类 面板
       unid: 'uid-' + this.getKey(),
       activeClass: '',
@@ -193,6 +256,39 @@ export default {
     this.init()
   },
   computed: {
+    // 标签的大小
+    tagSty() {
+      const len = this.selectedLabels.length
+      let num = 1
+      let x = 2
+      if (len > 5) {
+        num = 0.9
+        x = 4
+      }
+      if (len > 8) {
+        num = 0.85
+        x = 6
+      }
+      if (len > 11) {
+        num = 0.8
+        x = 8
+      }
+      if (len > 13) {
+        num = 0.75
+         x = 10
+      }
+      return {
+        transform: `scale(${num}) translateX(-${x}px)`
+      }
+    },
+    // 显示清空按钮
+    showClearBtn() {
+      return this.clearable && this.value.length > 0 && this.showClear
+    },
+    // 有没有传入回显
+    renShow() {
+      return this.sync && this.echoLabel.length > 0
+    },
     // 面板宽度
     activeClassByWidth() {
       if (!this.activeClass) return 160
@@ -202,9 +298,13 @@ export default {
     isSearching() {
       return !(this.searchText.trim() === '')
     },
-    // 不可用
+    // 超出最大选择个数 不可用
     notUseAble() {
-      return this.maxCount && this.selectedIds.length >= this.maxCount
+      return this.maxCount ? this.selectedIds.length >= this.maxCount : false
+    },
+    // 用了最大限制
+    useMax() {
+      return Boolean(this.maxCount)
     }
   },
   watch: {
@@ -215,22 +315,48 @@ export default {
       }
     },
     selectedNodes() {
-      this.$emit(
-        'change',
-        this.selectedNodes.map(o => o[this.valueKey])
-      )
+      const selected = this.selectedNodes.map(o => o[this.valueKey])
+      this.$emit('change', selected)
     },
+    // 传入数据变化更新store选中数据
     value: {
       deep: true,
       handler(n, o) {
-        if (!n || !o || JSON.stringify(n) === JSON.stringify(o)) return
-        if (!this.notUseAble) return
-        this.$emit('input', n.slice(0, this.maxCount))
+        const JS = JSON.stringify
+        if (!n || !o || JS(n) === JS(o)) return
+        // 不可用时不更新数据
+        if (this.notUseAble) {
+          this.$emit('input', n.slice(0, this.maxCount))
+        }
+        // 清空选择
+        this.cleatStoreSeleted()
+        if (this.value.length <= 0) {
+          this.showClear = false
+          return
+        }
+        // 先清空 在选中
         this.renderData()
+      }
+    },
+    // 返回labels
+    selectedLabels: {
+      deep: true,
+      handler(n, o) {
+        this.$emit('getLables', n)
       }
     }
   },
   methods: {
+    handleMouseenter() {
+      if (this.clearable && this.value.length > 0) {
+        this.showClear = true
+      }
+    },
+    handleMouseleave() {
+      if (this.clearable && this.value.length > 0) {
+        this.showClear = false
+      }
+    },
     // 弹出层的展示和取消
     visibleChange(v) {
       if (!v) {
@@ -238,9 +364,8 @@ export default {
       }
       this.$emit('visible-change', v)
     },
-    // 全部清空
-    handleClear() {
-      this.$emit('input', [])
+    // 清空内部数据存储
+    cleatStoreSeleted() {
       this.store.nodeList.forEach(targetNode => {
         if (targetNode) {
           targetNode.check(false)
@@ -249,6 +374,11 @@ export default {
       this.selectedNodes = []
       this.selectedLabels = []
       this.selectedIds = []
+    },
+    // 全部清空
+    handleClear() {
+      this.$emit('input', [])
+      this.cleatStoreSeleted()
       this.$emit('clear')
     },
     // 搜索
@@ -278,6 +408,97 @@ export default {
     },
     // 面板一层点击
     handleClick(node, levelIndex, level) {
+      const { sync, syncCallBack, maxRequest } = this
+      const { childNodes = [], loading = false, showExpIcon = true } = node
+      if (childNodes && childNodes.length <= 0) {
+        // 是异步请求模式 有请求回调方法 不是正在请求中 有下一级数据要显示
+        const canSync = sync && syncCallBack && !loading && showExpIcon
+        // 有设置最大请求层级 没有超过最大请求层级数
+        const canMax = maxRequest ? level < maxRequest : true
+        // 最大层级了不能再点击了
+        if (!canMax) {
+          node.nodeSyncSetData({ showExpIcon: false })
+        }
+        if (canSync && canMax) {
+          // loading状态
+          node.nodeSyncSetData({ loading: true })
+          this.syncCallBack(node)
+            .then(children => {
+              if (children && children.length > 0) {
+                node.nodeSyncClick(children)
+                children.forEach(child => {
+                  node.insertChild(child)
+                })
+
+                this.maxLevellist = Array.from(
+                  { length: this.store.maxLevel - 1 },
+                  (v, i) => {
+                    return {
+                      id: i + 1,
+                      rendered: true
+                    }
+                  }
+                )
+                node.nodeSyncSetData({ loading: false })
+                this.showNext(node, levelIndex, level)
+                // 有了数据更新前后状态
+                this.$nextTick(() => {
+                  node.checked = false
+                  this.handleCheck(node)
+                  // 存一下需要删除值的索引
+                  let indexArr = []
+                  setTimeout(() => {
+                    let { value: echoVal, label: echoName } = this.storeEchoData
+                    node.childNodes &&
+                      node.childNodes.forEach(childNode => {
+                        // 当前子节点的value
+                        let nodeVal = this.getValueByNode(childNode)
+                        // 子节点在回显缓存中的索引
+                        let nodeIndex = _.findIndex(echoVal, v => v === nodeVal)
+                        // 缓存中存在该节点的值
+                        if (nodeIndex !== -1) {
+                          childNode.check(true)
+                          // 选择完会加上该节点的id
+                          // 思路：选择的节点中有回显的值，将该节点的id替换回显中的id
+                          this.store.selectedIds.pop()
+                          // 存索引 用于当前列的值替换完了后，更新缓存的值，已经的替换的就删除缓存的值
+                          indexArr.push(nodeIndex)
+                          // 替换
+                          this.store.selectedIds.splice(
+                            nodeIndex,
+                            1,
+                            childNode.id
+                          )
+                        }
+                      })
+
+                    // 更新缓存的值
+                    indexArr.forEach(i => {
+                      echoVal.splice(i, 1, 'USED')
+                      echoName.splice(i, 1, 'USED')
+                    })
+                    this.storeEchoData = {
+                      value: echoVal.filter(v => v !== 'USED'),
+                      label: echoName.filter(v => v !== 'USED')
+                    }
+                    this.updateSelect(this.store.selectedIds)
+                  }, 16.7)
+                })
+              } else {
+                node.nodeSyncSetData({ loading: false, showExpIcon: false })
+              }
+            })
+            .catch(() => {
+              node.nodeSyncSetData({ loading: false })
+              this.showNext(node, levelIndex, level)
+            })
+        }
+      } else {
+        this.showNext(node, levelIndex, level)
+      }
+    },
+    // 显示下级
+    showNext(node, levelIndex, level) {
       if (this.maxLevellist[level - 1]) {
         this.maxLevellist[level - 1].rendered = true
       }
@@ -313,6 +534,16 @@ export default {
         }
       })
     },
+    // 获取单个节点的value
+    getValueByNode(node) {
+      let val = node[this.valueKey] || ''
+      while (node.parent[this.valueKey]) {
+        let pval = node.parent[this.valueKey]
+        val = pval + this.separator + val
+        node = node.parent
+      }
+      return val
+    },
     // 获取value
     getValue() {
       let result = this.selectedNodes.map(o => {
@@ -330,6 +561,11 @@ export default {
         }
         return o[this.valueKey]
       })
+      // 有不存在的id 小于0的
+      let hasEmptyIndex = _.findIndex(this.selectedIds, v => +v < 0)
+      if (hasEmptyIndex !== -1) {
+        result = [...this.storeEchoData.value, ...result]
+      }
       return result
     },
     // 面板复选框选中
@@ -345,31 +581,60 @@ export default {
         }
       })
     },
+    // 面板复选框全选中
+    handleCheckAll(val, list) {
+      list.forEach(node => node.check(val))
+      this.selectedIds = this.store.selectedIds
+      this.updateSelect(this.store.selectedIds)
+      const result = this.getValue()
+      this.$emit('input', result)
+    },
     // 标签单个删除
-    removeOne(v) {
-      let targetNode = _.find(this.selectedNodes, { showLabel: v })
+    removeOne(label) {
+      // 删除传入的数据
+      let { label: echoName, value: echoVal } = this.storeEchoData
+      if (echoName.includes(label)) {
+        let index = _.findIndex(echoName, name => name === label)
+        echoName.splice(index, 1)
+        echoVal.splice(index, 1)
+        this.store.selectedIds.splice(index, 1)
+        this.updateSelect(this.store.selectedIds)
+        const result = this.getValue()
+        this.$emit('input', result)
+        this.$emit('remove-tag', label)
+        return
+      }
+      let targetNode = _.find(this.selectedNodes, { showLabel: label })
       if (!this.onlyShowChecked) {
-        let str = v.substring(v.lastIndexOf(this.separator) + 1)
+        let str = label.substring(label.lastIndexOf(this.separator) + 1)
         targetNode = _.find(this.selectedNodes, { showLabel: str })
       }
       targetNode.checked = false
       this.handleCheck(targetNode)
-      this.$emit('remove-tag', v)
+      this.$emit('remove-tag', label)
     },
     // 选中数据更新转态
     updateSelect(data, needCheckNode = false, setValue = false) {
       let tempSelectedNodes = []
-      let tempSelectedLabels = []
-      let tempSelectedIds = []
+
+      // 不存在的id 设置为小于0
+      let newId = 0
+      const { value: echoVal, label: echoName } = this.storeEchoData
+      const ids = echoVal.map(v => --newId)
+
+      let tempSelectedLabels =
+        echoName.length === 0 ? [] : _.cloneDeep(echoName)
+      let tempSelectedIds = ids.length === 0 ? [] : ids
+
       data.forEach(o => {
         let targetNode
         if (setValue) {
           targetNode = _.find(this.store.nodeList, v => `${v.id}` === `${o}`)
           // tempSelectedIds.push(targetNode.id);
-          tempSelectedIds.push(o)
+          targetNode && !tempSelectedIds.includes(o) && tempSelectedIds.push(o)
         } else {
           targetNode = this.store.nodesMap[o]
-          tempSelectedIds.push(o)
+          targetNode && !tempSelectedIds.includes(o) && tempSelectedIds.push(o)
         }
         if (targetNode) {
           needCheckNode && targetNode.check(true)
@@ -385,6 +650,11 @@ export default {
           } else {
             label = targetNode.showLabel
           }
+          // 显示最后一层
+          if (this.labelLv === 'last') {
+            const labelArr = label.split(this.separator)
+            label = labelArr[labelArr.length - 1]
+          }
           tempSelectedNodes.push(targetNode)
           tempSelectedLabels.push(label)
         }
@@ -395,6 +665,12 @@ export default {
     },
     // 初始化
     init() {
+      if (this.renShow) {
+        this.storeEchoData = {
+          value: _.cloneDeep(this.value),
+          label: _.cloneDeep(this.echoLabel)
+        }
+      }
       this.store = new TreeStore({
         data: this.data,
         isShowIndeterminate: this.isShowIndeterminate,
@@ -402,7 +678,9 @@ export default {
         separator: this.separator,
         valueKey: this.valueKey,
         labelKey: this.labelKey,
-        childrenKey: this.childrenKey
+        childrenKey: this.childrenKey,
+        checkKey: this.checkKey,
+        labelLv: this.labelLv
       })
       this.root = this.store.root
       this.maxLevellist = Array.from(
@@ -420,8 +698,11 @@ export default {
     },
     // 回显
     renderData() {
+      // 数据没有
+      if (this.value.length <= 0) return
       // 根据this.value找到id组
-      const tempSelectedIds = this.value.map(value => {
+      let newId = 0
+      let tempSelectedIds = this.value.map(value => {
         const { valueKey, nodeList, separator } = this.store
         const vs = value.split(separator)
         const last = vs[vs.length - 1]
@@ -429,9 +710,8 @@ export default {
           nodeList,
           item => `${item[valueKey]}` === `${last}`
         )
-        return targetNode.id
+        return targetNode ? targetNode.id : --newId
       })
-
       this.updateSelect(tempSelectedIds, true, true)
       this.store.selectedIds = this.selectedIds
     }
@@ -440,12 +720,16 @@ export default {
 </script>
 <style lang="less" scoped>
 .multi-cascader {
+  width: 160px;
   min-width: 160px;
   position: relative;
-
-  & /deep/ .ivu-select-dropdown {
+  /deep/ .ivu-dropdown {
+    width: 100%;
+  }
+  /deep/ .ivu-select-dropdown {
     max-height: none !important;
     left: 0 !important;
+    width: fit-content;
   }
 }
 // 显示点击
@@ -453,14 +737,8 @@ export default {
   min-height: 32px;
   border-radius: 3px;
   border: 1px solid #dddddd;
-  min-width: 400px;
   width: 100%;
-  padding-left: 5px;
-  padding-right: 20px;
   position: relative;
-  &.clearable {
-    padding-right: 40px;
-  }
   .placeholder-text {
     height: 32px;
     line-height: 32px;
@@ -468,21 +746,25 @@ export default {
     color: #b8b9bb;
   }
   .tags {
+    padding-left: 5px;
+    padding-right: 10px;
     width: 100%;
     overflow: auto;
     max-height: 54px;
     min-height: 30px;
+    overflow: -moz-scrollbars-none;
+    -ms-overflow-style: none;
+  }
+
+  .tags::-webkit-scrollbar {
+    width: 0 !important;
   }
   .r-icon {
     position: absolute;
     right: 0;
     top: 50%;
     transform: translateY(-50%);
-    margin: 0 5px;
     cursor: pointer;
-    &.clear {
-      margin-right: 20px;
-    }
     /deep/ .ivu-icon {
       font-size: 15px;
     }
@@ -518,6 +800,6 @@ export default {
 </style>
 <style lang="less">
 .ivu-multi-cascader {
-  max-height: none !important;
+  max-height: 250px !important;
 }
 </style>

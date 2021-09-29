@@ -2,20 +2,36 @@ import _ from 'lodash'
 let nodeIdSeed = 0
 export default class Node {
   constructor(options) {
+    // 节点id
     this.id = nodeIdSeed++
+    // 根组件用到的数据项
     this.data = null
+    // 节点的父节点数据
     this.parent = null
+    // 是否能翻页还有下一级
+    // 用于展示下一级面板
+    // false为可以展示 true不展示
     this.isLeaf = true
+    // 是否被选中
     this.checked = false
+    // 是否被半选
     this.indeterminate = false
-    for (let option in options) {
-      if (options.hasOwnProperty(option)) {
-        this[option] = options[option]
-      }
-    }
+    // 是否在loading请求下一级数据
+    this.loading = false
+    // 显示下级的箭头
+    this.showExpIcon = true
+    // 其他额外的参数
+    this.nodeSyncSetData(options)
+
+    // 数据存储
     let store = this.store
+    // 加入value字段
     this[store.valueKey] = options[store.valueKey] || null
+    // 是否显示checkBox 默认显示
+    this.showCheck = (typeof options[store.checkKey] === 'undefined') || Boolean(options[store.checkKey])
+    // 当前节点的层级
     this.level = 0
+    // 节点下面的子节点
     this.childNodes = []
     if (this.parent) {
       this.level = this.parent.level + 1
@@ -27,7 +43,20 @@ export default class Node {
 
     this.setData(this.data)
   }
-
+  // 异步完成点击
+  nodeSyncClick(children) {
+    this.isLeaf = false
+    this.loading = false
+    this.children = children
+  }
+  // 异步点击设置node状态
+  nodeSyncSetData(options = {}) {
+    for (let option in options) {
+      if (options.hasOwnProperty(option)) {
+        this[option] = options[option]
+      }
+    }
+  }
   setData(data) {
     let store = this.store
     this.data = data

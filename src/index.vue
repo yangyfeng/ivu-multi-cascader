@@ -13,7 +13,6 @@
         <div v-if="selectedLabels.length > 0"
              class="tags">
           <Tag v-for="tag in selectedLabels"
-               :style="tagSty"
                :fade="false"
                :key="getKey(tag)"
                closable
@@ -25,21 +24,18 @@
         <p v-else
            class="placeholder-text">{{placeholder}}</p>
         <!-- 清空 -->
-        <span v-show="showClearBtn"
+        <Icon v-show="showClearBtn"
               class="r-icon"
-              @click.stop.prevent="handleClear">
-          <Icon type="ios-close-circle-outline"></Icon>
-        </span>
+              @click.stop.prevent="handleClear"
+              type="ios-close-circle-outline"></Icon>
         <!-- 下拉icon -->
-        <span v-show="!showClear"
-              class="r-icon exp">
-          <Icon type="ios-arrow-down"></Icon>
-        </span>
+        <Icon v-show="!showClear"
+              class="r-icon exp"
+              type="ios-arrow-down"></Icon>
       </div>
       <div slot="list"
            class="dropdown-items">
         <div class="ground"
-             :style="{width: activeClassByWidth + 'px'}"
              @click.stop>
           <div class="ground-item">
             <render-list :list="root.childNodes"
@@ -55,7 +51,6 @@
                          :expand-trigger="expandTrigger"></render-list>
           </div>
           <template v-for="item in maxLevellist">
-            <!-- :style="{left: (160 * item.id) + 'px'}" -->
             <div v-if="item.rendered && showData[item.id].length"
                  v-show="activeList.length >= item.id"
                  :key="getKey(item)"
@@ -257,31 +252,6 @@ export default {
     this.init()
   },
   computed: {
-    // 标签的大小
-    tagSty() {
-      const len = this.selectedLabels.length
-      let num = 1
-      let x = 2
-      if (len > 5) {
-        num = 0.9
-        x = 4
-      }
-      if (len > 8) {
-        num = 0.85
-        x = 6
-      }
-      if (len > 11) {
-        num = 0.8
-        x = 8
-      }
-      if (len > 13) {
-        num = 0.75
-        x = 10
-      }
-      return {
-        transform: `scale(${num}) translateX(-${x}px)`
-      }
-    },
     // 显示清空按钮
     showClearBtn() {
       return this.clearable && this.value.length > 0 && this.showClear
@@ -745,26 +715,50 @@ export default {
 }
 // 显示点击
 .labels {
+  position: relative;
+  overflow-y: auto;
+  max-height: 132px;
   min-height: 32px;
   border-radius: 3px;
   border: 1px solid #dddddd;
   width: 100%;
-  position: relative;
+  height: auto;
+  overflow: -moz-scrollbars-none;
+  -ms-overflow-style: none;
+
+  /* 设置滚动条的样式 */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  /* 滚动槽 */
+  &::-webkit-scrollbar-track {
+    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+    border-radius: 5px;
+  }
+  /* 滚动条滑块 */
+  &::-webkit-scrollbar-thumb {
+    border-radius: 5px;
+    background: rgba(0, 0, 0, 0.05);
+    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.5);
+  }
+
   .placeholder-text {
     height: 32px;
     line-height: 32px;
     font-size: 12px;
     color: #b8b9bb;
+    padding-left: 7px;
+    padding-right: 33px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    word-break: break-all;
   }
   .tags {
     padding-left: 5px;
-    padding-right: 10px;
+    padding-right: 18px;
+    height: auto;
     width: 100%;
-    overflow: auto;
-    max-height: 54px;
-    min-height: 30px;
-    overflow: -moz-scrollbars-none;
-    -ms-overflow-style: none;
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-start;
@@ -772,13 +766,9 @@ export default {
       cursor: default;
     }
   }
-
-  .tags::-webkit-scrollbar {
-    width: 0 !important;
-  }
   .r-icon {
     position: absolute;
-    right: 0;
+    right: 8px;
     top: 50%;
     transform: translateY(-50%);
     cursor: pointer;
@@ -789,8 +779,8 @@ export default {
 }
 // 面板
 .ground {
-  width: 100%;
-  // height: 204px;
+  display: flex;
+  justify-content: flex-start;
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
@@ -799,17 +789,8 @@ export default {
     display: block;
     clear: both;
   }
-  .ground-item {
-    float: left;
-  }
   .ground-pos {
-    width: 160px;
     border-left: 1px solid #eee;
-    // 定位排列
-    // position: absolute;
-    // top: 0;
-    // left: 0;
-    // height: 204px;
     overflow-y: auto;
     overflow-x: hidden;
   }

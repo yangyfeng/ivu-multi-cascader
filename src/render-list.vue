@@ -29,9 +29,9 @@
       <p class="li-label-style"
          @click="handleClick(node, nodeIndex, level)">
         <span :title="node[labelKey]"
-              style="margin-left: 5px">{{
-          node[labelKey]
-        }}</span>
+              style="margin-left: 5px">
+          {{node[labelKey]}}
+        </span>
         <Icon v-if="node.loading"
               class="li-label-icon turn"
               type="ios-sync" />
@@ -189,19 +189,23 @@ export default {
       color: #3989fa;
     }
     .li-label-style {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
       width: 100%;
       box-sizing: border-box;
-      position: relative;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      overflow: hidden;
       margin-top: 0;
       margin-bottom: 0;
+      span {
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+        flex: 1;
+        height: 100%;
+      }
       .li-label-icon {
-        position: absolute;
-        right: 0;
-        top: 50%;
-        transform: translate(0, -50%);
+        width: 12px;
+        height: 12px;
       }
     }
   }

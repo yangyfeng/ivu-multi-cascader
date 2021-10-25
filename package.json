@@ -1,6 +1,6 @@
 {
   "name": "ivu-multi-cascader",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "基于iView的级联多选",
   "main": "src/index.js",
   "scripts": {
